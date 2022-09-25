@@ -54,6 +54,7 @@ pub enum IoError {
     #[error("Input/output error: {}", _0)]
     Io(#[source] io::Error),
 
+    #[cfg(not(target_os = "wasi"))]
     #[error("TLS error: `{}'", _0)]
     Tls(#[source] native_tls::Error),
 }
@@ -219,7 +220,7 @@ impl From<UrlError> for Error {
         Error::Url(err)
     }
 }
-
+#[cfg(not(target_os = "wasi"))]
 impl From<native_tls::Error> for IoError {
     fn from(err: native_tls::Error) -> Self {
         IoError::Tls(err)

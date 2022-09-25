@@ -11,8 +11,10 @@ pub use self::{read_packet::ReadPacket, write_packet::WritePacket};
 use bytes::BytesMut;
 use futures_core::{ready, stream};
 use mysql_common::proto::codec::PacketCodec as PacketCodecInner;
+#[cfg(not(target_os = "wasi"))]
 use native_tls::{Certificate, Identity, TlsConnector};
 use pin_project::pin_project;
+#[cfg(not(target_os = "wasi"))]
 use socket2::{Socket as Socket2Socket, TcpKeepalive};
 #[cfg(unix)]
 use tokio::io::AsyncWriteExt;
@@ -119,6 +121,7 @@ impl Encoder<PooledBuf> for PacketCodec {
 #[derive(Debug)]
 pub(crate) enum Endpoint {
     Plain(Option<TcpStream>),
+    #[cfg(not(target_os = "wasi"))]
     Secure(#[pin] tokio_native_tls::TlsStream<TcpStream>),
     #[cfg(unix)]
     Socket(#[pin] Socket),
@@ -159,6 +162,7 @@ impl Endpoint {
                 CheckTcpStream(stream).await?;
                 Ok(())
             }
+            #[cfg(not(target_os = "wasi"))]
             Endpoint::Secure(tls_stream) => {
                 CheckTcpStream(tls_stream.get_mut().get_mut().get_mut()).await?;
                 Ok(())
@@ -171,7 +175,7 @@ impl Endpoint {
             Endpoint::Plain(None) => unreachable!(),
         }
     }
-
+    #[cfg(not(target_os = "wasi"))]
     pub fn is_secure(&self) -> bool {
         matches!(self, Endpoint::Secure(_))
     }
@@ -180,6 +184,7 @@ impl Endpoint {
         match *self {
             Endpoint::Plain(Some(ref stream)) => stream.set_nodelay(val)?,
             Endpoint::Plain(None) => unreachable!(),
+            #[cfg(not(target_os = "wasi"))]
             Endpoint::Secure(ref stream) => {
                 stream.get_ref().get_ref().get_ref().set_nodelay(val)?
             }
@@ -188,7 +193,7 @@ impl Endpoint {
         }
         Ok(())
     }
-
+    #[cfg(not(target_os = "wasi"))]
     pub async fn make_secure(
         &mut self,
         domain: String,
@@ -257,7 +262,7 @@ impl From<Socket> for Endpoint {
         Endpoint::Socket(socket)
     }
 }
-
+#[cfg(not(target_os = "wasi"))]
 impl From<tokio_native_tls::TlsStream<TcpStream>> for Endpoint {
     fn from(stream: tokio_native_tls::TlsStream<TcpStream>) -> Self {
         Endpoint::Secure(stream)
@@ -275,6 +280,7 @@ impl AsyncRead for Endpoint {
             EndpointProj::Plain(ref mut stream) => {
                 Pin::new(stream.as_mut().unwrap()).poll_read(cx, buf)
             }
+            #[cfg(not(target_os = "wasi"))]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_read(cx, buf),
             #[cfg(unix)]
             EndpointProj::Socket(ref mut stream) => stream.as_mut().poll_read(cx, buf),
@@ -293,6 +299,7 @@ impl AsyncWrite for Endpoint {
             EndpointProj::Plain(ref mut stream) => {
                 Pin::new(stream.as_mut().unwrap()).poll_write(cx, buf)
             }
+            #[cfg(not(target_os = "wasi"))]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_write(cx, buf),
             #[cfg(unix)]
             EndpointProj::Socket(ref mut stream) => stream.as_mut().poll_write(cx, buf),
@@ -308,6 +315,7 @@ impl AsyncWrite for Endpoint {
             EndpointProj::Plain(ref mut stream) => {
                 Pin::new(stream.as_mut().unwrap()).poll_flush(cx)
             }
+            #[cfg(not(target_os = "wasi"))]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_flush(cx),
             #[cfg(unix)]
             EndpointProj::Socket(ref mut stream) => stream.as_mut().poll_flush(cx),
@@ -323,6 +331,7 @@ impl AsyncWrite for Endpoint {
             EndpointProj::Plain(ref mut stream) => {
                 Pin::new(stream.as_mut().unwrap()).poll_shutdown(cx)
             }
+            #[cfg(not(target_os = "wasi"))]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_shutdown(cx),
             #[cfg(unix)]
             EndpointProj::Socket(ref mut stream) => stream.as_mut().poll_shutdown(cx),
@@ -370,7 +379,7 @@ impl Stream {
                 TcpStream::connect(&*addrs).await?
             }
         };
-
+        #[cfg(not(target_os = "wasi"))]
         if let Some(duration) = keepalive {
             #[cfg(unix)]
             let socket = {
@@ -402,7 +411,7 @@ impl Stream {
     pub(crate) fn set_tcp_nodelay(&self, val: bool) -> io::Result<()> {
         self.codec.as_ref().unwrap().get_ref().set_tcp_nodelay(val)
     }
-
+    #[cfg(not(target_os = "wasi"))]
     pub(crate) async fn make_secure(
         &mut self,
         domain: String,
@@ -415,7 +424,7 @@ impl Stream {
         self.codec = Some(Box::new(codec));
         Ok(())
     }
-
+    #[cfg(not(target_os = "wasi"))]
     pub(crate) fn is_secure(&self) -> bool {
         self.codec.as_ref().unwrap().get_ref().is_secure()
     }

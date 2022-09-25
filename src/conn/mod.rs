@@ -415,11 +415,13 @@ impl Conn {
 
     /// Returns true if io stream is encrypted.
     fn is_secure(&self) -> bool {
+        #[cfg(not(target_os = "wasi"))]
         if let Some(ref stream) = self.inner.stream {
             stream.is_secure()
         } else {
             false
         }
+        false
     }
 
     /// Hacky way to move connection through &mut. `self` becomes unusable.
@@ -482,7 +484,7 @@ impl Conn {
         };
         Ok(())
     }
-
+    #[cfg(not(target_os = "wasi"))]
     async fn switch_to_ssl_if_needed(&mut self) -> Result<()> {
         if self
             .inner
@@ -807,6 +809,8 @@ impl Conn {
                 }
                 #[cfg(target_os = "windows")]
                 return Err(crate::DriverError::NamedPipesDisabled.into());
+                #[cfg(target_os = "wasi")]
+                return Err(crate::DriverError::NamedPipesDisabled.into());
             } else {
                 let keepalive = opts
                     .tcp_keepalive()
@@ -817,6 +821,7 @@ impl Conn {
             conn.inner.stream = Some(stream);
             conn.setup_stream()?;
             conn.handle_handshake().await?;
+            #[cfg(not(target_os = "wasi"))]
             conn.switch_to_ssl_if_needed().await?;
             conn.do_handshake_response().await?;
             conn.continue_auth().await?;
