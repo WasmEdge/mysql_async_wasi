@@ -33,7 +33,7 @@ where
 * Amount float
 * Shipping float
 * Tax float
-* ShippingAddress string 
+* ShippingAddress string
 */
 
 #[tokio::main(flavor = "current_thread")]
@@ -54,20 +54,23 @@ async fn main() -> Result<()> {
             .collect::<String>()
             .await?;
         println!("create new table");
-    }
-    else{
+    } else {
         // delete all data from the table.
         println!("delete all from commerce");
         let _ = conn.query_iter("DELETE FROM commerce;").await?;
     }
 
     // insert some data
-    let _ = conn.query_iter("INSERT INTO commerce VALUES 
+    let _ = conn
+        .query_iter(
+            "INSERT INTO commerce VALUES 
     (1, 12, 2, 56.0, 15.0, 2.0, 'Mataderos 2312'),
     (2, 15, 3, 256.0, 30.0, 16.0, '1234 NW Bobcat Lane'),
     (3, 11, 5, 536.0, 50.0, 24.0, '20 Havelock'),
     (4, 8, 8, 126.0, 20.0, 12.0, '224 Pandan Loop'),
-    (5, 24, 1, 46.0, 10.0, 2.0, 'No.10 Jalan Besar');").await?;
+    (5, 24, 1, 46.0, 10.0, 2.0, 'No.10 Jalan Besar');",
+        )
+        .await?;
 
     // query data
     let result = conn
@@ -79,7 +82,9 @@ async fn main() -> Result<()> {
     dbg!(result);
 
     // delete some data
-    let _ = conn.query_iter("DELETE FROM commerce WHERE OrderID=4;").await?;
+    let _ = conn
+        .query_iter("DELETE FROM commerce WHERE OrderID=4;")
+        .await?;
     // query data
     let result = conn
         .query_iter("SELECT * from commerce;")
@@ -90,9 +95,13 @@ async fn main() -> Result<()> {
     dbg!(result);
 
     // update some data
-    let _ = conn.query_iter("UPDATE commerce
+    let _ = conn
+        .query_iter(
+            "UPDATE commerce
     SET ShippingAddress = '8366 Elizabeth St.'
-    WHERE OrderID = 2;").await?;
+    WHERE OrderID = 2;",
+        )
+        .await?;
     // query data
     let result = conn
         .query_iter("SELECT * from commerce;")

@@ -375,7 +375,19 @@ impl Stream {
                 TcpStream::connect((host.as_str(), *port)).await?
             }
             HostPortOrUrl::Url(url) => {
+                #[cfg(not(target_os = "wasi"))]
                 let addrs = url.socket_addrs(|| Some(DEFAULT_PORT))?;
+                #[cfg(target_os = "wasi")]
+                let mut addrs = wasmedge_wasi_socket::nslookup(
+                    url.host_str().expect("Unable to get host"),
+                    "http",
+                )
+                .unwrap();
+                #[cfg(target_os = "wasi")]
+                for addr in addrs.iter_mut() {
+                    addr.set_port(url.port_or_known_default().expect("No port found in url"));
+                }
+
                 TcpStream::connect(&*addrs).await?
             }
         };
