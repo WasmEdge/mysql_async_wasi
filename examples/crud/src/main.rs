@@ -29,6 +29,7 @@ struct Order {
     shipping_address: String,
 }
 
+
 impl Order {
     fn new(
         order_id: i32,
@@ -50,6 +51,7 @@ impl Order {
         }
     }
 }
+
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -76,6 +78,7 @@ async fn main() -> Result<()> {
         println!("delete all from orders");
         r"DELETE FROM orders;".ignore(&mut conn).await?;
     }
+
 
     let orders = vec![
         Order::new(1, 12, 2, 56.0, 15.0, 2.0, String::from("Mataderos 2312")),
@@ -127,6 +130,10 @@ async fn main() -> Result<()> {
         .ignore(&mut conn)
         .await?;
 
+    // delete some data
+    let _ = conn
+        .query_iter("DELETE FROM commerce WHERE OrderID=4;")
+        .await?;
     // query data
     let loaded_orders = "SELECT * FROM orders"
         .with(())
@@ -153,6 +160,7 @@ async fn main() -> Result<()> {
     SET shipping_address = '8366 Elizabeth St.'
     WHERE order_id = 2;"
         .ignore(&mut conn)
+
         .await?;
     // query data
     let loaded_orders = "SELECT * FROM orders"
