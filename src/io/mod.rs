@@ -119,6 +119,8 @@ pub(crate) enum Endpoint {
     Secure(#[pin] tokio_native_tls::TlsStream<TcpStream>),
     #[cfg(feature = "rustls-tls")]
     Secure(#[pin] tokio_rustls::client::TlsStream<tokio::net::TcpStream>),
+    #[cfg(feature = "wasmedge-tls")]
+    Secure(#[pin] wasmedge_rustls_api::stream::async_stream::TlsStream<tokio::net::TcpStream>),
     #[cfg(unix)]
     Socket(#[pin] Socket),
 }
@@ -150,7 +152,14 @@ impl Future for CheckTcpStream<'_> {
 }
 
 impl Endpoint {
-    #[cfg(all(any(feature = "native-tls-tls", feature = "rustls-tls"), unix))]
+    #[cfg(all(
+        any(
+            feature = "native-tls-tls",
+            feature = "rustls-tls",
+            feature = "wasmedge-tls"
+        ),
+        unix
+    ))]
     fn is_socket(&self) -> bool {
         match self {
             Self::Socket(_) => true,
@@ -177,6 +186,12 @@ impl Endpoint {
                 CheckTcpStream(stream).await?;
                 Ok(())
             }
+            #[cfg(feature = "wasmedge-tls")]
+            Endpoint::Secure(tls_stream) => {
+                let stream = tls_stream.get_mut().0;
+                CheckTcpStream(stream).await?;
+                Ok(())
+            }
             #[cfg(unix)]
             Endpoint::Socket(socket) => {
                 socket.write(&[]).await?;
@@ -186,12 +201,20 @@ impl Endpoint {
         }
     }
 
-    #[cfg(any(feature = "native-tls-tls", feature = "rustls-tls"))]
+    #[cfg(any(
+        feature = "native-tls-tls",
+        feature = "rustls-tls",
+        feature = "wasmedge-tls"
+    ))]
     pub fn is_secure(&self) -> bool {
         matches!(self, Endpoint::Secure(_))
     }
 
-    #[cfg(all(not(feature = "native-tls"), not(feature = "rustls")))]
+    #[cfg(all(
+        not(feature = "native-tls"),
+        not(feature = "rustls"),
+        not(feature = "wasmedge-tls")
+    ))]
     pub async fn _make_secure(
         &mut self,
         _domain: String,
@@ -212,6 +235,11 @@ impl Endpoint {
                 stream.get_ref().get_ref().get_ref().set_nodelay(val)?
             }
             #[cfg(feature = "rustls-tls")]
+            Endpoint::Secure(ref stream) => {
+                let stream = stream.get_ref().0;
+                stream.set_nodelay(val)?;
+            }
+            #[cfg(feature = "wasmedge-tls")]
             Endpoint::Secure(ref stream) => {
                 let stream = stream.get_ref().0;
                 stream.set_nodelay(val)?;
@@ -262,6 +290,8 @@ impl AsyncRead for Endpoint {
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_read(cx, buf),
             #[cfg(feature = "rustls-tls")]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_read(cx, buf),
+            #[cfg(feature = "wasmedge-tls")]
+            EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_read(cx, buf),
             #[cfg(unix)]
             EndpointProj::Socket(ref mut stream) => stream.as_mut().poll_read(cx, buf),
         })
@@ -283,6 +313,8 @@ impl AsyncWrite for Endpoint {
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_write(cx, buf),
             #[cfg(feature = "rustls-tls")]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_write(cx, buf),
+            #[cfg(feature = "wasmedge-tls")]
+            EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_write(cx, buf),
             #[cfg(unix)]
             EndpointProj::Socket(ref mut stream) => stream.as_mut().poll_write(cx, buf),
         })
@@ -301,6 +333,8 @@ impl AsyncWrite for Endpoint {
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_flush(cx),
             #[cfg(feature = "rustls-tls")]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_flush(cx),
+            #[cfg(feature = "wasmedge-tls")]
+            EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_flush(cx),
             #[cfg(unix)]
             EndpointProj::Socket(ref mut stream) => stream.as_mut().poll_flush(cx),
         })
@@ -318,6 +352,8 @@ impl AsyncWrite for Endpoint {
             #[cfg(feature = "native-tls-tls")]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_shutdown(cx),
             #[cfg(feature = "rustls-tls")]
+            EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_shutdown(cx),
+            #[cfg(feature = "wasmedge-tls")]
             EndpointProj::Secure(ref mut stream) => stream.as_mut().poll_shutdown(cx),
             #[cfg(unix)]
             EndpointProj::Socket(ref mut stream) => stream.as_mut().poll_shutdown(cx),
@@ -409,12 +445,14 @@ impl Stream {
     pub(crate) fn set_tcp_nodelay(&self, val: bool) -> io::Result<()> {
         self.codec.as_ref().unwrap().get_ref().set_tcp_nodelay(val)
     }
-    #[cfg(not(target_os = "wasi"))]
+    #[cfg(any(not(target_os = "wasi"), feature = "wasmedge-tls"))]
     pub(crate) async fn make_secure(
         &mut self,
         domain: String,
-        ssl_opts: SslOpts,
+        ssl_opts: crate::SslOpts,
     ) -> crate::error::Result<()> {
+        use tokio_util::codec::FramedParts;
+
         let codec = self.codec.take().unwrap();
         let FramedParts { mut io, codec, .. } = codec.into_parts();
         io.make_secure(domain, ssl_opts).await?;
@@ -423,7 +461,11 @@ impl Stream {
         Ok(())
     }
 
-    #[cfg(any(feature = "native-tls-tls", feature = "rustls-tls"))]
+    #[cfg(any(
+        feature = "native-tls-tls",
+        feature = "rustls-tls",
+        feature = "wasmedge-tls"
+    ))]
     pub(crate) fn is_secure(&self) -> bool {
         self.codec.as_ref().unwrap().get_ref().is_secure()
     }
@@ -505,6 +547,8 @@ mod test {
         let stream = match endpoint {
             super::Endpoint::Plain(Some(stream)) => stream,
             #[cfg(feature = "rustls-tls")]
+            super::Endpoint::Secure(tls_stream) => tls_stream.get_ref().0,
+            #[cfg(feature = "wasmedge-tls")]
             super::Endpoint::Secure(tls_stream) => tls_stream.get_ref().0,
             #[cfg(feature = "native-tls")]
             super::Endpoint::Secure(tls_stream) => tls_stream.get_ref().get_ref().get_ref(),

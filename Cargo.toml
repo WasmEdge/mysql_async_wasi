@@ -42,9 +42,20 @@ url = "2.1"
 # mio = { version = "0.8.0", features = ["os-poll", "net"] }
 
 [target.'cfg(target_os="wasi")'.dependencies]
-tokio_wasi = {version = "1", features = [ "io-util", "fs", "net", "time", "rt", "macros", "sync"] }
+tokio_wasi = { version = "1", features = [
+    "io-util",
+    "fs",
+    "net",
+    "time",
+    "rt",
+    "macros",
+    "sync",
+] }
 tokio-util_wasi = { version = "0.7.2", features = ["codec", "io"] }
 wasmedge_wasi_socket = "0.4.3"
+wasmedge_rustls_api = { version = "0.1.0", optional = true, features = [
+    "tokio_async",
+] }
 
 # [target.'cfg(not(target_os="wasi"))'.dev-dependencies]
 # tempfile = "3.1.0"
@@ -88,7 +99,14 @@ optional = true
 
 [dev-dependencies]
 tempfile = "3.1.0"
-tokio_wasi = { version = "1", features = [ "io-util", "fs", "net", "time", "rt", "macros"] }
+tokio_wasi = { version = "1", features = [
+    "io-util",
+    "fs",
+    "net",
+    "time",
+    "rt",
+    "macros",
+] }
 rand = "0.8.0"
 
 [features]
@@ -99,6 +117,7 @@ default = [
     "mysql_common/uuid",
     "mysql_common/frunk",
     # "native-tls-tls",
+    "wasmedge-tls",
 ]
 default-rustls = [
     "flate2/zlib",
@@ -108,6 +127,15 @@ default-rustls = [
     "mysql_common/uuid",
     "mysql_common/frunk",
     "rustls-tls",
+]
+wasmedge-tls = [
+    # "flate2/zlib",
+    "mysql_common/bigdecimal03",
+    "mysql_common/rust_decimal",
+    "mysql_common/time03",
+    "mysql_common/uuid",
+    "mysql_common/frunk",
+    "wasmedge_rustls_api",
 ]
 minimal = ["flate2/zlib"]
 native-tls-tls = ["native-tls", "tokio-native-tls"]

@@ -415,14 +415,22 @@ impl Conn {
 
     /// Returns true if io stream is encrypted.
     fn is_secure(&self) -> bool {
-        #[cfg(any(feature = "native-tls-tls", feature = "rustls-tls"))]
+        #[cfg(any(
+            feature = "native-tls-tls",
+            feature = "rustls-tls",
+            feature = "wasmedge-tls"
+        ))]
         if let Some(ref stream) = self.inner.stream {
             stream.is_secure()
         } else {
             false
         }
 
-        #[cfg(not(any(feature = "native-tls-tls", feature = "rustls-tls")))]
+        #[cfg(not(any(
+            feature = "native-tls-tls",
+            feature = "rustls-tls",
+            feature = "wasmedge-tls"
+        )))]
         false
     }
 
@@ -486,7 +494,7 @@ impl Conn {
         };
         Ok(())
     }
-    #[cfg(not(target_os = "wasi"))]
+    #[cfg(any(not(target_os = "wasi"), feature = "wasmedge-tls"))]
     async fn switch_to_ssl_if_needed(&mut self) -> Result<()> {
         if self
             .inner
@@ -503,12 +511,12 @@ impl Conn {
             }
 
             let collation = if self.inner.version >= (5, 5, 3) {
-                UTF8MB4_GENERAL_CI
+                mysql_common::constants::UTF8MB4_GENERAL_CI
             } else {
-                UTF8_GENERAL_CI
+                crate::consts::UTF8MB4_GENERAL_CI
             };
 
-            let ssl_request = SslRequest::new(
+            let ssl_request = mysql_common::packets::SslRequest::new(
                 self.inner.capabilities,
                 DEFAULT_MAX_ALLOWED_PACKET as u32,
                 collation as u8,
@@ -846,7 +854,7 @@ impl Conn {
             conn.inner.stream = Some(stream);
             conn.setup_stream()?;
             conn.handle_handshake().await?;
-            #[cfg(not(target_os = "wasi"))]
+            #[cfg(any(not(target_os = "wasi"), feature = "wasmedge-tls"))]
             conn.switch_to_ssl_if_needed().await?;
             conn.do_handshake_response().await?;
             conn.continue_auth().await?;

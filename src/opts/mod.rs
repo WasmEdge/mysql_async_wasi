@@ -137,7 +137,7 @@ impl HostPortOrUrl {
 /// ```
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Default)]
 pub struct SslOpts {
-    #[cfg(any(feature = "native-tls", feature = "rustls-tls"))]
+    #[cfg(any(feature = "native-tls", feature = "rustls-tls",))]
     client_identity: Option<ClientIdentity>,
     root_cert_path: Option<Cow<'static, Path>>,
     skip_domain_validation: bool,
