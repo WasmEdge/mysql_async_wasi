@@ -7,7 +7,7 @@ license = "MIT/Apache-2.0"
 name = "mysql_async_wasi"
 readme = "README.md"
 repository = "https://github.com/WasmEdge/mysql_async_wasi"
-version = "0.31.2"
+version = "0.31.5"
 exclude = ["test/*"]
 edition = "2018"
 categories = ["asynchronous", "database"]
@@ -52,7 +52,7 @@ tokio_wasi = { version = "1", features = [
     "sync",
 ] }
 tokio-util_wasi = { version = "0.7.2", features = ["codec", "io"] }
-wasmedge_wasi_socket = "0.4.3"
+wasmedge_wasi_socket = "0.5"
 wasmedge_rustls_api = { version = "0.1.0", optional = true, features = [
     "tokio_async",
 ] }
@@ -63,9 +63,22 @@ wasmedge_rustls_api = { version = "0.1.0", optional = true, features = [
 # tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
 # rand = "0.8.0"
 
-[target.'cfg(target_os="wasi")'.dev-dependencies]
+[dev-dependencies]
+tempfile = "3.1.0"
 tokio = { version = "1.0", features = ["io-util", "fs", "net", "time", "rt"] }
 tokio-util = { version = "0.7.2", features = ["codec", "io"] }
+
+[target.'cfg(target_os="wasi")'.dev-dependencies]
+tempfile = "3.1.0"
+tokio_wasi = { version = "1", features = [
+    "io-util",
+    "fs",
+    "net",
+    "time",
+    "rt",
+    "macros",
+] }
+rand = "0.8.0"
 
 
 [dependencies.tokio-rustls]
@@ -97,48 +110,19 @@ optional = true
 version = "0.22.1"
 optional = true
 
-[dev-dependencies]
-tempfile = "3.1.0"
-tokio_wasi = { version = "1", features = [
-    "io-util",
-    "fs",
-    "net",
-    "time",
-    "rt",
-    "macros",
-] }
-rand = "0.8.0"
 
 [features]
-default = [
+default = ["common", "rust_backend"]
+default-rustls = ["common", "rust_backend", "rustls-tls"]
+common = [
     "mysql_common/bigdecimal03",
     "mysql_common/rust_decimal",
     "mysql_common/time03",
     "mysql_common/uuid",
     "mysql_common/frunk",
-    # "native-tls-tls",
-    "wasmedge-tls",
 ]
-default-rustls = [
-    "flate2/zlib",
-    "mysql_common/bigdecimal03",
-    "mysql_common/rust_decimal",
-    "mysql_common/time03",
-    "mysql_common/uuid",
-    "mysql_common/frunk",
-    "rustls-tls",
-]
-wasmedge-tls = [
-    # "flate2/zlib",
-    "mysql_common/bigdecimal03",
-    "mysql_common/rust_decimal",
-    "mysql_common/time03",
-    "mysql_common/uuid",
-    "mysql_common/frunk",
-    "wasmedge_rustls_api",
-]
-minimal = ["flate2/zlib"]
 native-tls-tls = ["native-tls", "tokio-native-tls"]
+rust_backend = ["flate2/rust_backend"]
 rustls-tls = [
     "rustls",
     "tokio-rustls",
@@ -146,9 +130,11 @@ rustls-tls = [
     "webpki-roots",
     "rustls-pemfile",
 ]
-nightly = []
+wasmedge-tls = ["wasmedge_rustls_api"]
+minimal = ["flate2/zlib"]
 zlib = ["flate2/zlib"]
 full = ["default", "zlib"]
+nightly = []
 
 [lib]
 name = "mysql_async"

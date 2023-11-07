@@ -1,0 +1,39 @@
+name: examples
+
+on:
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'
+        required: true
+        default: 'info'
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    steps: 
+      - name: Install WasmEdge
+        run: curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s
+      - name: Install Rust
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
+      - name: Install Rust target
+        run: cargo install cargo-wasi
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: setup mysql
+        uses: shogo82148/actions-setup-mysql@v1
+        with:
+          mysql-version: '8.0'
+          user: 'test'
+          password: 'password'
+      - name: Create DataBase
+        run: mysql -utest -h127.0.0.1 -ppassword -e 'CREATE DATABASE db_name'
+      - name: Build & Run
+        run: |
+          cd examples/crud
+          cargo wasi build
+          ~/.wasmedge/bin/wasmedge --env 'DATABASE_URL=mysql://test:password@127.0.0.1:3306/db_name' target/wasm32-wasi/debug/crud.wasm

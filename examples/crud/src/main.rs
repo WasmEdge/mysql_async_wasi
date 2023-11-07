@@ -1,6 +1,4 @@
-use mysql_async::{
-    prelude::*, Opts, OptsBuilder, Pool, PoolConstraints, PoolOpts, QueryResult, Result,
-};
+use mysql_async::{prelude::*, Opts, OptsBuilder, Pool, PoolConstraints, PoolOpts, Result};
 
 fn get_url() -> String {
     if let Ok(url) = std::env::var("DATABASE_URL") {
@@ -14,7 +12,7 @@ fn get_url() -> String {
         }
         url
     } else {
-        "mysql://root:pass@127.0.0.1:3306/mysql".into()
+        "mysql://root:pass@127.0.0.1:3306/test_db".into()
     }
 }
 
@@ -28,7 +26,6 @@ struct Order {
     tax: f32,
     shipping_address: String,
 }
-
 
 impl Order {
     fn new(
@@ -51,7 +48,6 @@ impl Order {
         }
     }
 }
-
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -78,7 +74,6 @@ async fn main() -> Result<()> {
         println!("delete all from orders");
         r"DELETE FROM orders;".ignore(&mut conn).await?;
     }
-
 
     let orders = vec![
         Order::new(1, 12, 2, 56.0, 15.0, 2.0, String::from("Mataderos 2312")),
@@ -132,7 +127,7 @@ async fn main() -> Result<()> {
 
     // delete some data
     let _ = conn
-        .query_iter("DELETE FROM commerce WHERE OrderID=4;")
+        .query_iter("DELETE FROM orders WHERE order_id=4;")
         .await?;
     // query data
     let loaded_orders = "SELECT * FROM orders"
@@ -160,7 +155,6 @@ async fn main() -> Result<()> {
     SET shipping_address = '8366 Elizabeth St.'
     WHERE order_id = 2;"
         .ignore(&mut conn)
-
         .await?;
     // query data
     let loaded_orders = "SELECT * FROM orders"

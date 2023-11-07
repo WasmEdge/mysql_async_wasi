@@ -4,7 +4,7 @@ Tokio based asynchronous MySql client library for The Rust Programming Language.
 This is a fork from the original [mysql_async](https://github.com/blackbeam/mysql_async) with support for WebAssembly compilation target.
 That allows async MySql apps to run inside the [WasmEdge Runtime](https://github.com/WasmEdge/WasmEdge#readme) as a lightweight and secure alternative to natively compiled apps in Linux container.
 
-For more details and usage examples, please see the upstream [mysql_async](https://github.com/blackbeam/mysql-async) source and [this example](https://github.com/WasmEdge/wasmedge-db-examples/tree/main/mysql_async).
+For more details and usage examples, please see the upstream [mysql_async](https://github.com/blackbeam/mysql_async) source and [this example](https://github.com/WasmEdge/wasmedge-db-examples/tree/main/mysql_async).
 
 Note: We do not yet support SSL / TLS connections to databases in this WebAssembly client.
 
@@ -18,47 +18,46 @@ mysql_async_wasi = "<desired version>"
 ## Crate Features
 
 Default feature set is wide – it includes all default [`mysql_common` features][myslqcommonfeatures]
-as well as `native-tls`-based TLS support.
+as well as `miniz_oxide` `flate2` backend.
 
 ### List Of Features
 
 *   `minimal` – enables only necessary features (at the moment the only necessary feature
-    is `flate2` backend). Enables:
+    is `zlib` `flate2` backend). Enables:
 
-    -   `flate2/zlib"
+    -   `flate2/zlib`
 
     **Example:**
 
     ```toml
     [dependencies]
-    mysql_async = { version = "*", default-features = false, features = ["minimal"]}
+    mysql_async_wasi = { version = "*", default-features = false, features = ["minimal"]}
     ```
 
     **Note:* it is possible to use another `flate2` backend by directly choosing it:
 
     ```toml
     [dependencies]
-    mysql_async = { version = "*", default-features = false }
+    mysql_async_wasi = { version = "*", default-features = false }
     flate2 = { version = "*", default-features = false, features = ["rust_backend"] }
     ```
 
 *   `default` – enables the following set of crate's and dependencies' features:
 
-    -   `native-tls-tls`
-    -   `flate2/zlib"
+    -   `flate2/rust_backend`
     -   `mysql_common/bigdecimal03`
     -   `mysql_common/rust_decimal`
     -   `mysql_common/time03`
     -   `mysql_common/uuid`
     -   `mysql_common/frunk`
 
-*   `default-rustls` – same as default but with `rustls-tls` instead of `native-tls-tls`.
+*   `default-rustls` – same as default but with `rustls-tls`.
 
     **Example:**
 
     ```toml
     [dependencies]
-    mysql_async = { version = "*", default-features = false, features = ["default-rustls"] }
+    mysql_async_wasi = { version = "*", default-features = false, features = ["default-rustls"] }
     ```
 
 *   `native-tls-tls` – enables `native-tls`-based TLS support _(conflicts with `rustls-tls`)_
@@ -67,7 +66,7 @@ as well as `native-tls`-based TLS support.
 
     ```toml
     [dependencies]
-    mysql_async = { version = "*", default-features = false, features = ["native-tls-tls"] }
+    mysql_async_wasi = { version = "*", default-features = false, features = ["native-tls-tls"] }
 
 *   `rustls-tls` – enables `native-tls`-based TLS support _(conflicts with `native-tls-tls`)_
 
@@ -75,7 +74,7 @@ as well as `native-tls`-based TLS support.
 
     ```toml
     [dependencies]
-    mysql_async = { version = "*", default-features = false, features = ["rustls-tls"] }
+    mysql_async_wasi = { version = "*", default-features = false, features = ["rustls-tls"] }
 
 [myslqcommonfeatures]: https://github.com/blackbeam/rust_mysql_common#crate-features
 
@@ -83,10 +82,10 @@ as well as `native-tls`-based TLS support.
 
 SSL support comes in two flavors:
 
-1.  Based on native-tls – this is the default option, that usually works without pitfalls
-    (see the `native-tls-tls` crate feature).
+1.  Based on rustls – TLS backend written in Rust (see the `rustls-tls` crate feature). 
 
-2.  Based on rustls – TLS backend written in Rust (see the `rustls-tls` crate feature).
+2.  Based on native-tls – this is the option that usually works without pitfalls
+    (see the `native-tls-tls` crate feature).
 
     Please also note a few things about rustls:
     -   it will fail if you'll try to connect to the server by its IP address,
