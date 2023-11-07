@@ -113,7 +113,7 @@ optional = true
 
 [features]
 default = ["common", "rust_backend"]
-default-rustls = ["common", "rust_backend", "rustls-tls"]
+default-rustls = ["common", "rust_backend", "wasmedge-tls"]
 common = [
     "mysql_common/bigdecimal03",
     "mysql_common/rust_decimal",
