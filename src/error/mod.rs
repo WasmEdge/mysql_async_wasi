@@ -113,7 +113,7 @@ pub enum DriverError {
     #[error("Error converting from mysql row.")]
     FromRow { row: Row },
 
-    #[error("Missing named parameter `{}'.", String::from_utf8_lossy(&name))]
+    #[error("Missing named parameter `{}'.", String::from_utf8_lossy(name))]
     MissingNamedParam { name: Vec<u8> },
 
     #[error("Named and positional parameters mixed in one statement.")]
@@ -167,6 +167,9 @@ pub enum DriverError {
 
     #[error("Client asked for SSL but server does not have this capability")]
     NoClientSslFlagFromServer,
+
+    #[error("mysql_clear_password must be enabled on the client side")]
+    CleartextPluginDisabled,
 }
 
 #[derive(Debug, Error)]

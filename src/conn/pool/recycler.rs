@@ -28,6 +28,7 @@ pub(crate) struct Recycler {
     discard: FuturesUnordered<BoxFuture<'static, ()>>,
     discarded: usize,
     cleaning: FuturesUnordered<BoxFuture<'static, Conn>>,
+    reset: FuturesUnordered<BoxFuture<'static, Conn>>,
 
     // Option<Conn> so that we have a way to send a "I didn't make a Conn after all" signal
     dropped: mpsc::UnboundedReceiver<Option<Conn>>,
@@ -47,6 +48,7 @@ impl Recycler {
             discard: FuturesUnordered::new(),
             discarded: 0,
             cleaning: FuturesUnordered::new(),
+            reset: FuturesUnordered::new(),
             dropped,
             pool_opts,
             eof: false,
@@ -60,6 +62,21 @@ impl Future for Recycler {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut close = self.inner.close.load(Ordering::Acquire);
 
+        macro_rules! conn_return {
+            ($self:ident, $conn:ident, $pool_is_closed: expr) => {{
+                let mut exchange = $self.inner.exchange.lock().unwrap();
+                if $pool_is_closed || exchange.available.len() >= $self.pool_opts.active_bound() {
+                    drop(exchange);
+                    $self.discard.push($conn.close_conn().boxed());
+                } else {
+                    exchange.available.push_back($conn.into());
+                    if let Some(w) = exchange.waiting.pop() {
+                        w.wake();
+                    }
+                }
+            }};
+        }
+
         macro_rules! conn_decision {
             ($self:ident, $conn:ident) => {
                 if $conn.inner.stream.is_none() || $conn.inner.disconnected {
@@ -69,17 +86,10 @@ impl Future for Recycler {
                     $self.cleaning.push($conn.cleanup_for_pool().boxed());
                 } else if $conn.expired() || close {
                     $self.discard.push($conn.close_conn().boxed());
+                } else if $conn.inner.reset_upon_returning_to_a_pool {
+                    $self.reset.push($conn.reset_for_pool().boxed());
                 } else {
-                    let mut exchange = $self.inner.exchange.lock().unwrap();
-                    if exchange.available.len() >= $self.pool_opts.active_bound() {
-                        drop(exchange);
-                        $self.discard.push($conn.close_conn().boxed());
-                    } else {
-                        exchange.available.push_back($conn.into());
-                        if let Some(w) = exchange.waiting.pop() {
-                            w.wake();
-                        }
-                    }
+                    conn_return!($self, $conn, false);
                 }
             };
         }
@@ -138,6 +148,21 @@ impl Future for Recycler {
             }
         }
 
+        // let's iterate through connections being successfully reset
+        loop {
+            match Pin::new(&mut self.reset).poll_next(cx) {
+                Poll::Pending | Poll::Ready(None) => break,
+                Poll::Ready(Some(Ok(conn))) => conn_return!(self, conn, close),
+                Poll::Ready(Some(Err(e))) => {
+                    // an error during reset.
+                    // replace with a new connection
+                    self.discarded += 1;
+                    // NOTE: we're discarding the error here
+                    let _ = e;
+                }
+            }
+        }
+
         // are there any torn-down connections for us to deal with?
         loop {
             match Pin::new(&mut self.discard).poll_next(cx) {
@@ -176,7 +201,11 @@ impl Future for Recycler {
         // races on .exist
         let effectively_eof = close && self.inner.exchange.lock().unwrap().exist == 0;
 
-        if (self.eof || effectively_eof) && self.cleaning.is_empty() && self.discard.is_empty() {
+        if (self.eof || effectively_eof)
+            && self.cleaning.is_empty()
+            && self.discard.is_empty()
+            && self.reset.is_empty()
+        {
             // we know that all Pool handles have been dropped (self.dropped.poll returned None).
 
             // if this assertion fails, where are the remaining connections?

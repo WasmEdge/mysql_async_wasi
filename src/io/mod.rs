@@ -152,19 +152,9 @@ impl Future for CheckTcpStream<'_> {
 }
 
 impl Endpoint {
-    #[cfg(all(
-        any(
-            feature = "native-tls-tls",
-            feature = "rustls-tls",
-            feature = "wasmedge-tls"
-        ),
-        unix
-    ))]
+    #[cfg(unix)]
     fn is_socket(&self) -> bool {
-        match self {
-            Self::Socket(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Socket(_))
     }
 
     /// Checks, that connection is alive.
@@ -194,7 +184,7 @@ impl Endpoint {
             }
             #[cfg(unix)]
             Endpoint::Socket(socket) => {
-                socket.write(&[]).await?;
+                let _ = socket.write(&[]).await?;
                 Ok(())
             }
             Endpoint::Plain(None) => unreachable!(),
@@ -468,6 +458,11 @@ impl Stream {
     ))]
     pub(crate) fn is_secure(&self) -> bool {
         self.codec.as_ref().unwrap().get_ref().is_secure()
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn is_socket(&self) -> bool {
+        self.codec.as_ref().unwrap().get_ref().is_socket()
     }
 
     pub(crate) fn reset_seq_id(&mut self) {

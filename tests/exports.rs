@@ -4,12 +4,17 @@ use mysql_async::{
     futures::{DisconnectPool, GetConn},
     params,
     prelude::{
-        BatchQuery, ConvIr, FromRow, FromValue, GlobalHandler, Protocol, Query, Queryable,
-        StatementLike, ToValue,
+        BatchQuery, FromRow, FromValue, GlobalHandler, Protocol, Query, Queryable, StatementLike,
+        ToValue,
     },
     BinaryProtocol, Column, Conn, Deserialized, DriverError, Error, FromRowError, FromValueError,
-    IoError, IsolationLevel, Opts, OptsBuilder, Params, ParseError, Pool, PoolConstraints,
-    PoolOpts, QueryResult, Result, Row, Serialized, ServerError, SslOpts, Statement, TextProtocol,
-    Transaction, TxOpts, UrlError, Value, WhiteListFsHandler, DEFAULT_INACTIVE_CONNECTION_TTL,
-    DEFAULT_TTL_CHECK_INTERVAL,
+    GnoInterval, Gtids, IoError, IsolationLevel, OkPacket, Opts, OptsBuilder, Params, ParseError,
+    Pool, PoolConstraints, PoolOpts, QueryResult, Result, Row, Schema, Serialized, ServerError,
+    SessionStateChange, SessionStateInfo, Sid, SslOpts, Statement, SystemVariable, TextProtocol,
+    Transaction, TransactionCharacteristics, TransactionState, TxOpts, Unsupported, UrlError,
+    Value, WhiteListFsHandler, DEFAULT_INACTIVE_CONNECTION_TTL, DEFAULT_TTL_CHECK_INTERVAL,
 };
+
+#[cfg(feature = "binlog")]
+#[allow(unused_imports)]
+use mysql_async::{binlog, BinlogStream, BinlogStreamRequest};

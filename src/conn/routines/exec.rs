@@ -3,6 +3,8 @@ use std::mem;
 use futures_core::future::BoxFuture;
 use futures_util::FutureExt;
 use mysql_common::{packets::ComStmtExecuteRequestBuilder, params::Params};
+#[cfg(feature = "tracing")]
+use tracing::{field, info_span, Level, Span};
 
 use crate::{BinaryProtocol, Conn, DriverError, Statement};
 
@@ -23,10 +25,33 @@ impl<'a> ExecRoutine<'a> {
 
 impl Routine<()> for ExecRoutine<'_> {
     fn call<'a>(&'a mut self, conn: &'a mut Conn) -> BoxFuture<'a, crate::Result<()>> {
-        async move {
+        #[cfg(feature = "tracing")]
+        let span = info_span!(
+            "mysql_async::exec",
+            mysql_async.connection.id = conn.id(),
+            mysql_async.statement.id = self.stmt.id(),
+            mysql_async.query.params = field::Empty,
+        );
+
+        let fut = async move {
             loop {
                 match self.params {
                     Params::Positional(ref params) => {
+                        #[cfg(feature = "tracing")]
+                        if tracing::span_enabled!(Level::DEBUG) {
+                            // The params may contain sensitive data. Restrict to DEBUG.
+                            // TODO: make more efficient
+                            // TODO: use intersperse() once stable
+                            let sep = std::iter::repeat(", ");
+                            let ps = params
+                                .iter()
+                                .map(|p| p.as_sql(true))
+                                .zip(sep)
+                                .map(|(val, sep)| val + sep)
+                                .collect::<String>();
+                            Span::current().record("mysql_async.query.params", ps);
+                        }
+
                         if self.stmt.num_params() as usize != params.len() {
                             Err(DriverError::StmtParamsMismatch {
                                 required: self.stmt.num_params(),
@@ -35,7 +60,7 @@ impl Routine<()> for ExecRoutine<'_> {
                         }
 
                         let (body, as_long_data) =
-                            ComStmtExecuteRequestBuilder::new(self.stmt.id()).build(&*params);
+                            ComStmtExecuteRequestBuilder::new(self.stmt.id()).build(params);
 
                         if as_long_data {
                             conn.send_long_data(self.stmt.id(), params.iter()).await?;
@@ -46,14 +71,13 @@ impl Routine<()> for ExecRoutine<'_> {
                         break;
                     }
                     Params::Named(_) => {
-                        if self.stmt.named_params.is_none() {
+                        if self.stmt.named_params.is_empty() {
                             let error = DriverError::NamedParamsForPositionalQuery.into();
                             return Err(error);
                         }
 
                         let named = mem::replace(&mut self.params, Params::Empty);
-                        self.params =
-                            named.into_positional(self.stmt.named_params.as_ref().unwrap())?;
+                        self.params = named.into_positional(&self.stmt.named_params)?;
 
                         continue;
                     }
@@ -76,7 +100,11 @@ impl Routine<()> for ExecRoutine<'_> {
                 }
             }
             Ok(())
-        }
-        .boxed()
+        };
+
+        #[cfg(feature = "tracing")]
+        let fut = instrument_result!(fut, span);
+
+        fut.boxed()
     }
 }
