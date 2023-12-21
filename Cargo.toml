@@ -6,7 +6,7 @@ keywords = ["mysql", "database", "asynchronous", "async", "wasi"]
 license = "MIT/Apache-2.0"
 name = "mysql_async_wasi"
 readme = "README.md"
-repository = "https://github.com/blackbeam/mysql_async"
+repository = "https://github.com/WasmEdge/mysql_async_wasi"
 version = "0.33.0"
 exclude = ["test/*"]
 edition = "2018"
@@ -58,9 +58,15 @@ wasmedge_rustls_api = { version = "0.1.0", optional = true, features = [
     "tokio_async",
 ] }
 
-[dependencies.tokio-rustls]
+[target.'cfg(not(target_os="wasi"))'.dependencies.tokio-rustls]
 version = "0.24.0"
 optional = true
+
+[target.'cfg(target_os="wasi")'.dependencies.tokio-rustls-wasi]
+git = "https://github.com/second-state/tokio-rustls.git"
+branch = "v0.24.1"
+optional = true
+
 
 [target.'cfg(not(target_os="wasi"))'.dependencies.tokio-native-tls]
 version = "0.3.0"
@@ -106,7 +112,7 @@ tokio_wasi = { version = "1", features = [
 wasmedge_wasi_socket = "0.5"
 
 [features]
-default = ["flate2/zlib", "common", "derive", "native-tls-tls", "binlog"]
+default = ["flate2/zlib", "common", "derive", "binlog"]
 default-rustls = [
     "flate2/rust_backend",
     "common",
@@ -121,10 +127,12 @@ common = [
     "mysql_common/frunk",
 ]
 minimal = ["flate2/zlib"]
+wasmedge-tls = ["wasmedge_rustls_api"]
 native-tls-tls = ["native-tls", "tokio-native-tls"]
 rustls-tls = [
     "rustls",
     "tokio-rustls",
+    "tokio-rustls-wasi",
     "webpki",
     "webpki-roots",
     "rustls-pemfile",

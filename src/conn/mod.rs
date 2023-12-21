@@ -16,7 +16,7 @@ use mysql_common::{
     packets::{
         AuthPlugin, AuthSwitchRequest, CommonOkPacket, ErrPacket, HandshakePacket,
         HandshakeResponse, OkPacket, OkPacketDeserializer, OldAuthSwitchRequest, OldEofPacket,
-        ResultSetTerminator, SslRequest,
+        ResultSetTerminator,
     },
     proto::MySerialize,
     row::Row,
@@ -528,7 +528,7 @@ impl Conn {
 
         Ok(())
     }
-    #[cfg(any(not(target_os = "wasi"), feature = "wasmedge-tls"))]
+
     async fn switch_to_ssl_if_needed(&mut self) -> Result<()> {
         if self
             .inner
@@ -929,7 +929,6 @@ impl Conn {
             conn.inner.stream = Some(stream);
             conn.setup_stream()?;
             conn.handle_handshake().await?;
-            #[cfg(any(not(target_os = "wasi"), feature = "wasmedge-tls"))]
             conn.switch_to_ssl_if_needed().await?;
             conn.do_handshake_response().await?;
             conn.continue_auth().await?;
@@ -1452,7 +1451,10 @@ mod test {
     #[test]
     fn should_not_panic_if_dropped_without_tokio_runtime() {
         let fut = Conn::new(get_opts());
-        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         runtime.block_on(async {
             fut.await.unwrap();
         });

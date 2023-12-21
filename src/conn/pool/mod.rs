@@ -485,7 +485,10 @@ mod test {
             }
         }
 
-        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         let database = Database {
             pool: Pool::new(get_opts()),
         };
@@ -854,7 +857,10 @@ mod test {
     fn should_not_panic_on_unclean_shutdown() {
         // run more than once to trigger different drop orders
         for _ in 0..10 {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
             let (tx, rx) = tokio::sync::oneshot::channel();
             rt.block_on(async move {
                 let pool = Pool::new(get_opts());
@@ -874,7 +880,10 @@ mod test {
     fn should_perform_clean_shutdown() {
         // run more than once to trigger different drop orders
         for _ in 0..10 {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
             let (tx, rx) = tokio::sync::oneshot::channel();
             let jh = rt.spawn(async move {
                 let pool = Pool::new(get_opts());

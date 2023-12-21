@@ -205,7 +205,7 @@ impl Endpoint {
         not(feature = "rustls"),
         not(feature = "wasmedge-tls")
     ))]
-    pub async fn _make_secure(
+    pub async fn make_secure(
         &mut self,
         _domain: String,
         _ssl_opts: crate::SslOpts,
@@ -435,7 +435,6 @@ impl Stream {
     pub(crate) fn set_tcp_nodelay(&self, val: bool) -> io::Result<()> {
         self.codec.as_ref().unwrap().get_ref().set_tcp_nodelay(val)
     }
-    #[cfg(any(not(target_os = "wasi"), feature = "wasmedge-tls"))]
     pub(crate) async fn make_secure(
         &mut self,
         domain: String,
